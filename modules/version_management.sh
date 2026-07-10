@@ -207,29 +207,14 @@ check_mod_version_compatibility() {
         
     elif [[ "$platform" == "curseforge" ]]; then
         # Check CurseForge mod for version compatibility using same logic as check_curseforge_mod
-        # First get the encrypted API token
-        local token_url="https://raw.githubusercontent.com/aradanmn/MinecraftSplitscreenSteamdeck/${REPO_REF:-main}/token.enc"
-        local encrypted_token_file=$(mktemp)
-        
-        if command -v curl >/dev/null 2>&1; then
-            curl -s -L -o "$encrypted_token_file" "$token_url" 2>/dev/null
-        elif command -v wget >/dev/null 2>&1; then
-            wget -q -O "$encrypted_token_file" "$token_url" 2>/dev/null
-        else
-            rm -f "$encrypted_token_file"
-            return 1
-        fi
-        
-        # Decrypt the API token
-        local fixed_passphrase="MinecraftSplitscreenSteamDeck2025"
+        # Resolve the user's own CurseForge API key (bring-your-own-key). The resolver lives in
+        # mod_management.sh; both modules are sourced by the installer, so it's available at
+        # call time. Skip if unavailable (Modrinth mods need no key).
         local cf_api_key
-        cf_api_key=$(openssl enc -aes-256-cbc -d -a -pbkdf2 -pass pass:"$fixed_passphrase" -in "$encrypted_token_file" 2>/dev/null)
-        rm -f "$encrypted_token_file"
-        
-        if [[ -z "$cf_api_key" ]]; then
-            return 1  # Can't get API key
+        if ! declare -f get_curseforge_api_token >/dev/null 2>&1 || ! cf_api_key=$(get_curseforge_api_token); then
+            return 1  # No CurseForge API key
         fi
-        
+
         # Query CurseForge API with Fabric loader filter
         local cf_api_url="https://api.curseforge.com/v1/mods/$mod_id/files?modLoaderType=4"
         local tmp_body
